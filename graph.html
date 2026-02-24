@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Myles David — Conversation Graph</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; color: #c8c8d0; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  canvas { display: block; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  #title {
+    position: fixed; top: 20px; left: 24px; z-index: 10; pointer-events: none;
+    font-size: 15px; font-weight: 600; letter-spacing: 0.3px; color: #8888a0;
+  }
+  #title span { color: #5b9cf5; }
+
+  #stats {
+    position: fixed; top: 46px; left: 24px; z-index: 10; pointer-events: none;
+    font-size: 11px; color: #4a4a5c; letter-spacing: 0.5px; font-weight: 400;
+  }
+
+  #legend {
+    position: fixed; bottom: 24px; right: 24px; z-index: 10; pointer-events: none;
+    background: rgba(14, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 14px 18px; backdrop-filter: blur(12px);
+  }
+  #legend h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #555568; margin-bottom: 10px; font-weight: 600; }
+  .legend-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; font-size: 12px; color: #7a7a90; }
+  .legend-row:last-child { margin-bottom: 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-line { width: 24px; height: 2px; flex-shrink: 0; border-radius: 1px; }
+  .dot-person { background: #4a9eff; box-shadow: 0 0 6px rgba(74, 158, 255, 0.5); }
+  .dot-entity { background: #f0a050; box-shadow: 0 0 6px rgba(240, 160, 80, 0.4); }
+  .line-interacts { background: rgba(140, 180, 255, 0.7); }
+  .line-topic { background: rgba(240, 160, 80, 0.2); }
+
+  #tooltip {
+    position: fixed; z-index: 20; pointer-events: none; display: none;
+    background: rgba(14, 14, 22, 0.92); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 10px 14px; backdrop-filter: blur(16px);
+    font-size: 12px; line-height: 1.5; max-width: 240px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  #tooltip .tt-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  #tooltip .tt-type { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #666680; margin-bottom: 6px; }
+  #tooltip .tt-detail { color: #8888a0; }
+
+  #instructions {
+    position: fixed; bottom: 24px; left: 24px; z-index: 10; pointer-events: none;
+    font-size: 10px; color: #333344; letter-spacing: 0.3px; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<div id="title"><span>Myles David</span> — Conversation Graph</div>
+<div id="stats"></div>
+<div id="legend">
+  <h4>Legend</h4>
+  <div class="legend-row"><div class="legend-dot dot-person"></div> Person</div>
+  <div class="legend-row"><div class="legend-dot dot-entity"></div> Topic</div>
+  <div class="legend-row"><div class="legend-line line-interacts"></div> Interaction</div>
+  <div class="legend-row"><div class="legend-line line-topic"></div> Topic link</div>
+</div>
+<div id="tooltip">
+  <div class="tt-name"></div>
+  <div class="tt-type"></div>
+  <div class="tt-detail"></div>
+</div>
+<div id="instructions">
+  Scroll to zoom · Drag background to pan · Drag nodes to move · Click to pin
+</div>
+
+<canvas id="graph"></canvas>
+
+<script>
+// ── Raw data ──
+const RAW = {"nodes":[{"id":"person:Myles David","type":"person","name":"Myles David","rank":0.0024299654273221495,"clusters":400},{"id":"person:Susan Patterson","type":"person","name":"Susan Patterson","rank":0.0005146234162787491,"clusters":1},{"id":"person:Whitney VanHorn","type":"person","name":"Whitney VanHorn","rank":0.0005165063598004563,"clusters":3},{"id":"person:Emerson Mills","type":"person","name":"Emerson Mills","rank":0.0005136819445178954,"clusters":1},{"id":"person:laurel@thekiliangroup.com","type":"person","name":"laurel@thekiliangroup.com","rank":0.0005146234162787491,"clusters":1},{"id":"person:Dan Gatobu","type":"person","name":"Dan Gatobu","rank":0.000557356274240726,"clusters":129},{"id":"person:Manuel David","type":"person","name":"Manuel David","rank":0.0006348114940204628,"clusters":64},{"id":"person:Samuel Uzere","type":"person","name":"Samuel Uzere","rank":0.0006974132501881951,"clusters":49},{"id":"person:Bronsexual","type":"person","name":"Bronsexual","rank":0.0005136819445178954,"clusters":1},{"id":"person:Ashtin Dowler","type":"person","name":"Ashtin Dowler","rank":0.000519617031684875,"clusters":26},{"id":"person:Jeremy Johnson","type":"person","name":"Jeremy Johnson","rank":0.0005136819445178954,"clusters":1},{"id":"person:Luis Machado","type":"person","name":"Luis Machado","rank":0.0005136819445178954,"clusters":1},{"id":"person:Pasha Baradaran","type":"person","name":"Pasha Baradaran","rank":0.0005146234162787491,"clusters":1},{"id":"person:Lauren Winslow","type":"person","name":"Lauren Winslow","rank":0.0005136819445178954,"clusters":1},{"id":"person:Kyle Hudson","type":"person","name":"Kyle Hudson","rank":0.0005136819445178954,"clusters":1},{"id":"person:Nate Cabell","type":"person","name":"Nate Cabell","rank":0.0005146234162787491,"clusters":1},{"id":"person:Stephanie Johnson","type":"person","name":"Stephanie Johnson","rank":0.0005146234162787491,"clusters":1},{"id":"person:David Carney","type":"person","name":"David Carney","rank":0.0005136819445178954,"clusters":1},{"id":"person:Mdavid6","type":"person","name":"Mdavid6","rank":0.0005136819445178954,"clusters":1},{"id":"person:Manueld1","type":"person","name":"Manueld1","rank":0.0005136819445178954,"clusters":5},{"id":"person:Devcore(Pheonix)","type":"person","name":"Devcore(Pheonix)","rank":0.000519373742986086,"clusters":4},{"id":"person:Dave Mangulabnan","type":"person","name":"Dave Mangulabnan","rank":0.0005693031823070131,"clusters":56},{"id":"person:Sanket Srivastava","type":"person","name":"Sanket Srivastava","rank":0.0005146234162787491,"clusters":1},{"id":"person:Ini Sam-Adelusimo","type":"person","name":"Ini Sam-Adelusimo","rank":0.0005156083773834794,"clusters":9},{"id":"person:Adham Soliman","type":"person","name":"Adham Soliman","rank":0.0005136819445178954,"clusters":130},{"id":"person:Vansh","type":"person","name":"Vansh","rank":0.0005230375415802062,"clusters":4},{"id":"entity:task","type":"entity","name":"task","freq":33},{"id":"entity:paradigm","type":"entity","name":"paradigm","freq":29},{"id":"entity:procedure manual","type":"entity","name":"procedure manual","freq":24},{"id":"entity:videos","type":"entity","name":"videos","freq":18},{"id":"entity:system","type":"entity","name":"system","freq":17},{"id":"entity:lead","type":"entity","name":"lead","freq":16},{"id":"entity:webhook","type":"entity","name":"webhook","freq":13},{"id":"entity:heygen","type":"entity","name":"heygen","freq":12},{"id":"entity:tailscale","type":"entity","name":"tailscale","freq":10},{"id":"entity:template","type":"entity","name":"template","freq":10},{"id":"entity:platform","type":"entity","name":"platform","freq":9},{"id":"entity:tenant","type":"entity","name":"tenant","freq":9},{"id":"entity:integration","type":"entity","name":"integration","freq":8},{"id":"entity:outreach","type":"entity","name":"outreach","freq":8},{"id":"entity:relay","type":"entity","name":"relay","freq":7},{"id":"entity:spanish","type":"entity","name":"spanish","freq":7},{"id":"entity:post","type":"entity","name":"post","freq":7},{"id":"entity:personalization","type":"entity","name":"personalization","freq":7},{"id":"entity:server","type":"entity","name":"server","freq":7},{"id":"entity:inbox","type":"entity","name":"inbox","freq":7},{"id":"entity:year","type":"entity","name":"year","freq":7},{"id":"entity:implementation","type":"entity","name":"implementation","freq":6},{"id":"entity:ghl","type":"entity","name":"ghl","freq":6},{"id":"entity:outbound","type":"entity","name":"outbound","freq":6},{"id":"entity:track","type":"entity","name":"track","freq":6},{"id":"entity:standup","type":"entity","name":"standup","freq":6},{"id":"entity:sdrs","type":"entity","name":"sdrs","freq":6},{"id":"entity:slack","type":"entity","name":"slack","freq":6},{"id":"entity:web info","type":"entity","name":"web info","freq":6},{"id":"entity:info worker","type":"entity","name":"info worker","freq":6},{"id":"entity:interested","type":"entity","name":"interested","freq":5},{"id":"entity:insurance","type":"entity","name":"insurance","freq":5},{"id":"entity:onmicrosoft onmicrosoft","type":"entity","name":"onmicrosoft onmicrosoft","freq":5},{"id":"entity:whitney","type":"entity","name":"whitney","freq":5},{"id":"entity:job","type":"entity","name":"job","freq":5},{"id":"entity:upload","type":"entity","name":"upload","freq":5},{"id":"entity:spreadsheet","type":"entity","name":"spreadsheet","freq":5},{"id":"entity:user","type":"entity","name":"user","freq":5},{"id":"entity:worker skipping","type":"entity","name":"worker skipping","freq":5},{"id":"entity:paused web","type":"entity","name":"paused web","freq":5}],"edges":[{"source":"person:Myles David","target":"person:Whitney VanHorn","type":"INTERACTS","weight":3},{"source":"person:Myles David","target":"person:Susan Patterson","type":"INTERACTS","weight":1},{"source":"person:Emerson Mills","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Myles David","target":"person:laurel@thekiliangroup.com","type":"INTERACTS","weight":1},{"source":"person:Dan Gatobu","target":"person:Myles David","type":"INTERACTS","weight":144},{"source":"person:Manuel David","target":"person:Myles David","type":"INTERACTS","weight":56},{"source":"person:Myles David","target":"person:Samuel Uzere","type":"INTERACTS","weight":84},{"source":"person:Bronsexual","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Ashtin Dowler","target":"person:Myles David","type":"INTERACTS","weight":23},{"source":"person:Jeremy Johnson","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Luis Machado","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Myles David","target":"person:Pasha Baradaran","type":"INTERACTS","weight":1},{"source":"person:Lauren Winslow","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Myles David","target":"person:Nate Cabell","type":"INTERACTS","weight":1},{"source":"person:Kyle Hudson","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Myles David","target":"person:Stephanie Johnson","type":"INTERACTS","weight":1},{"source":"person:David Carney","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Mdavid6","target":"person:Myles David","type":"INTERACTS","weight":1},{"source":"person:Manueld1","target":"person:Myles David","type":"INTERACTS","weight":5},{"source":"person:Adham Soliman","target":"person:Myles David","type":"INTERACTS","weight":98},{"source":"person:Dave Mangulabnan","target":"person:Myles David","type":"INTERACTS","weight":76},{"source":"person:Adham Soliman","target":"person:Dan Gatobu","type":"INTERACTS","weight":40},{"source":"person:Adham Soliman","target":"person:Dave Mangulabnan","type":"INTERACTS","weight":24},{"source":"person:Dan Gatobu","target":"person:Dave Mangulabnan","type":"INTERACTS","weight":29},{"source":"person:Dave Mangulabnan","target":"person:Manuel David","type":"INTERACTS","weight":10},{"source":"person:Dan Gatobu","target":"person:Samuel Uzere","type":"INTERACTS","weight":11},{"source":"person:Ashtin Dowler","target":"person:Dan Gatobu","type":"INTERACTS","weight":6},{"source":"person:Dan Gatobu","target":"person:Devcore(Pheonix)","type":"INTERACTS","weight":1},{"source":"person:Ashtin Dowler","target":"person:Devcore(Pheonix)","type":"INTERACTS","weight":1},{"source":"person:Ashtin Dowler","target":"person:Dave Mangulabnan","type":"INTERACTS","weight":6},{"source":"person:Devcore(Pheonix)","target":"person:Myles David","type":"INTERACTS","weight":3},{"source":"person:Dave Mangulabnan","target":"person:Devcore(Pheonix)","type":"INTERACTS","weight":1},{"source":"person:Manuel David","target":"person:Samuel Uzere","type":"INTERACTS","weight":27},{"source":"person:Adham Soliman","target":"person:Samuel Uzere","type":"INTERACTS","weight":14},{"source":"person:Dave Mangulabnan","target":"person:Samuel Uzere","type":"INTERACTS","weight":11},{"source":"person:Adham Soliman","target":"person:Manuel David","type":"INTERACTS","weight":14},{"source":"person:Ashtin Dowler","target":"person:Samuel Uzere","type":"INTERACTS","weight":7},{"source":"person:Ashtin Dowler","target":"person:Manuel David","type":"INTERACTS","weight":8},{"source":"person:Devcore(Pheonix)","target":"person:Manuel David","type":"INTERACTS","weight":1},{"source":"person:Dan Gatobu","target":"person:Manuel David","type":"INTERACTS","weight":8},{"source":"person:Adham Soliman","target":"person:Ini Sam-Adelusimo","type":"INTERACTS","weight":2},{"source":"person:Ini Sam-Adelusimo","target":"person:Myles David","type":"INTERACTS","weight":3},{"source":"person:Myles David","target":"person:Vansh","type":"INTERACTS","weight":4},{"source":"person:Adham Soliman","target":"person:Ashtin Dowler","type":"INTERACTS","weight":10},{"source":"person:Myles David","target":"person:Sanket Srivastava","type":"INTERACTS","weight":1},{"source":"person:Dan Gatobu","target":"person:Vansh","type":"INTERACTS","weight":3},{"source":"person:Ini Sam-Adelusimo","target":"person:Manuel David","type":"INTERACTS","weight":2},{"source":"person:Dan Gatobu","target":"person:Ini Sam-Adelusimo","type":"INTERACTS","weight":1},{"source":"person:Manuel David","target":"person:Vansh","type":"INTERACTS","weight":1},{"source":"person:Dave Mangulabnan","target":"person:Vansh","type":"INTERACTS","weight":1},{"source":"person:Myles David","target":"entity:webhook","type":"TOPIC","weight":38.362952936263795},{"source":"person:Myles David","target":"entity:interested","type":"TOPIC","weight":22.320193002833857},{"source":"person:Myles David","target":"entity:system","type":"TOPIC","weight":55.11613107891655},{"source":"person:Myles David","target":"entity:paradigm","type":"TOPIC","weight":63.10752375232833},{"source":"person:Myles David","target":"entity:procedure manual","type":"TOPIC","weight":107.63889146384352},{"source":"person:Myles David","target":"entity:videos","type":"TOPIC","weight":58.55679970336493},{"source":"person:Myles David","target":"entity:implementation","type":"TOPIC","weight":20.52600005375001},{"source":"person:Myles David","target":"entity:integration","type":"TOPIC","weight":33.036860239634905},{"source":"person:Myles David","target":"entity:heygen","type":"TOPIC","weight":49.343936680037345},{"source":"person:Myles David","target":"entity:relay","type":"TOPIC","weight":26.454142819648318},{"source":"person:Myles David","target":"entity:platform","type":"TOPIC","weight":30.789000080625016},{"source":"person:Myles David","target":"entity:ghl","type":"TOPIC","weight":21.86486136163527},{"source":"person:Myles David","target":"entity:lead","type":"TOPIC","weight":50.21681853347797},{"source":"person:Myles David","target":"entity:insurance","type":"TOPIC","weight":22.843441146598405},{"source":"person:Myles David","target":"entity:spreadsheet","type":"TOPIC","weight":25.092781725073635},{"source":"person:Myles David","target":"entity:tailscale","type":"TOPIC","weight":50.30437921392435},{"source":"person:Myles David","target":"entity:outbound","type":"TOPIC","weight":31.72527745160255},{"source":"person:Myles David","target":"entity:spanish","type":"TOPIC","weight":31.498667692311855},{"source":"person:Myles David","target":"entity:post","type":"TOPIC","weight":20.85347139260135},{"source":"person:Myles David","target":"entity:onmicrosoft onmicrosoft","type":"TOPIC","weight":30.546237913821827},{"source":"person:Myles David","target":"entity:tenant","type":"TOPIC","weight":40.07378834615129},{"source":"person:Myles David","target":"entity:template","type":"TOPIC","weight":43.90416736253892},{"source":"person:Myles David","target":"entity:whitney","type":"TOPIC","weight":22.499048351651325},{"source":"person:Myles David","target":"entity:standup","type":"TOPIC","weight":17.342230547376985},{"source":"person:Myles David","target":"entity:job","type":"TOPIC","weight":19.033312448851596},{"source":"person:Myles David","target":"entity:outreach","type":"TOPIC","weight":23.472138032568875},{"source":"person:Myles David","target":"entity:task","type":"TOPIC","weight":71.00455581938793},{"source":"person:Myles David","target":"entity:track","type":"TOPIC","weight":15.226649959081278},{"source":"person:Myles David","target":"entity:personalization","type":"TOPIC","weight":37.91270281543094},{"source":"person:Myles David","target":"entity:sdrs","type":"TOPIC","weight":36.655485496586195},{"source":"person:Myles David","target":"entity:upload","type":"TOPIC","weight":22.499048351651325},{"source":"person:Myles David","target":"entity:year","type":"TOPIC","weight":33.688152697553896},{"source":"person:Myles David","target":"entity:server","type":"TOPIC","weight":28.208642287591708},{"source":"person:Myles David","target":"entity:slack","type":"TOPIC","weight":26.99885802198159},{"source":"person:Myles David","target":"entity:inbox","type":"TOPIC","weight":29.359370577398828},{"source":"person:Myles David","target":"entity:user","type":"TOPIC","weight":13.499429010990795},{"source":"person:Whitney VanHorn","target":"entity:procedure manual","type":"TOPIC","weight":95.42039629831478},{"source":"person:Dan Gatobu","target":"entity:webhook","type":"TOPIC","weight":11.803985518850398},{"source":"person:Dan Gatobu","target":"entity:spanish","type":"TOPIC","weight":22.499048351651325},{"source":"person:Dan Gatobu","target":"entity:template","type":"TOPIC","weight":17.99923868132106},{"source":"person:Dan Gatobu","target":"entity:standup","type":"TOPIC","weight":17.342230547376985},{"source":"person:Dan Gatobu","target":"entity:task","type":"TOPIC","weight":34.16777696099298},{"source":"person:Dan Gatobu","target":"entity:track","type":"TOPIC","weight":7.613324979540639},{"source":"person:Dan Gatobu","target":"entity:relay","type":"TOPIC","weight":13.499429010990795},{"source":"person:Dan Gatobu","target":"entity:spreadsheet","type":"TOPIC","weight":15.031905882288767},{"source":"person:Dan Gatobu","target":"entity:interested","type":"TOPIC","weight":15.031905882288767},{"source":"person:Dan Gatobu","target":"entity:outreach","type":"TOPIC","weight":7.824046010856292},{"source":"person:Dan Gatobu","target":"entity:post","type":"TOPIC","weight":10.021270588192511},{"source":"person:Dan Gatobu","target":"entity:tenant","type":"TOPIC","weight":12.95246434060893},{"source":"person:Dan Gatobu","target":"entity:slack","type":"TOPIC","weight":17.99923868132106},{"source":"person:Dan Gatobu","target":"entity:upload","type":"TOPIC","weight":13.499429010990795},{"source":"person:Dan Gatobu","target":"entity:inbox","type":"TOPIC","weight":20.724394350326207},{"source":"person:Dan Gatobu","target":"entity:web info","type":"TOPIC","weight":36.655485496586195},{"source":"person:Dan Gatobu","target":"entity:info worker","type":"TOPIC","weight":36.655485496586195},{"source":"person:Dan Gatobu","target":"entity:worker skipping","type":"TOPIC","weight":30.546237913821827},{"source":"person:Dan Gatobu","target":"entity:paused web","type":"TOPIC","weight":30.546237913821827},{"source":"person:Dan Gatobu","target":"entity:integration","type":"TOPIC","weight":9.44590644328895},{"source":"person:Dan Gatobu","target":"entity:server","type":"TOPIC","weight":16.119224164338117},{"source":"person:Dan Gatobu","target":"entity:heygen","type":"TOPIC","weight":43.1748811353631},{"source":"person:Dan Gatobu","target":"entity:videos","type":"TOPIC","weight":18.8918128865779},{"source":"person:Dan Gatobu","target":"entity:whitney","type":"TOPIC","weight":8.99961934066053},{"source":"person:Dan Gatobu","target":"entity:year","type":"TOPIC","weight":18.65624681526513},{"source":"person:Dan Gatobu","target":"entity:paradigm","type":"TOPIC","weight":4.8407362573008585},{"source":"person:Manuel David","target":"entity:post","type":"TOPIC","weight":37.10177259921461},{"source":"person:Manuel David","target":"entity:paradigm","type":"TOPIC","weight":36.30552192975644},{"source":"person:Manuel David","target":"entity:outreach","type":"TOPIC","weight":23.472138032568875},{"source":"person:Manuel David","target":"entity:personalization","type":"TOPIC","weight":37.91270281543094},{"source":"person:Manuel David","target":"entity:sdrs","type":"TOPIC","weight":36.655485496586195},{"source":"person:Manuel David","target":"entity:outbound","type":"TOPIC","weight":24.436990331057462},{"source":"person:Manuel David","target":"entity:template","type":"TOPIC","weight":12.95246434060893},{"source":"person:Manuel David","target":"entity:spreadsheet","type":"TOPIC","weight":15.031905882288767},{"source":"person:Manuel David","target":"entity:interested","type":"TOPIC","weight":15.031905882288767},{"source":"person:Manuel David","target":"entity:insurance","type":"TOPIC","weight":14.168859664933425},{"source":"person:Manuel David","target":"entity:task","type":"TOPIC","weight":20.019953163147505},{"source":"person:Manuel David","target":"entity:lead","type":"TOPIC","weight":38.32579470680058},{"source":"person:Manuel David","target":"entity:user","type":"TOPIC","weight":22.499048351651325},{"source":"person:Manuel David","target":"entity:slack","type":"TOPIC","weight":8.99961934066053},{"source":"person:Manuel David","target":"entity:web info","type":"TOPIC","weight":36.655485496586195},{"source":"person:Manuel David","target":"entity:info worker","type":"TOPIC","weight":36.655485496586195},{"source":"person:Manuel David","target":"entity:worker skipping","type":"TOPIC","weight":30.546237913821827},{"source":"person:Manuel David","target":"entity:paused web","type":"TOPIC","weight":30.546237913821827},{"source":"person:Manuel David","target":"entity:year","type":"TOPIC","weight":18.65624681526513},{"source":"person:Samuel Uzere","target":"entity:paradigm","type":"TOPIC","weight":31.464785672455577},{"source":"person:Samuel Uzere","target":"entity:job","type":"TOPIC","weight":7.613324979540639},{"source":"person:Samuel Uzere","target":"entity:outreach","type":"TOPIC","weight":7.824046010856292},{"source":"person:Samuel Uzere","target":"entity:task","type":"TOPIC","weight":23.757206201545657},{"source":"person:Samuel Uzere","target":"entity:server","type":"TOPIC","weight":20.149030205422648},{"source":"person:Samuel Uzere","target":"entity:lead","type":"TOPIC","weight":29.69081847972796},{"source":"person:Samuel Uzere","target":"entity:user","type":"TOPIC","weight":22.499048351651325},{"source":"person:Samuel Uzere","target":"entity:slack","type":"TOPIC","weight":8.99961934066053},{"source":"person:Samuel Uzere","target":"entity:heygen","type":"TOPIC","weight":25.90492868121786},{"source":"person:Ashtin Dowler","target":"entity:standup","type":"TOPIC","weight":5.780743515792329},{"source":"person:Ashtin Dowler","target":"entity:paradigm","type":"TOPIC","weight":16.942576900553004},{"source":"person:Ashtin Dowler","target":"entity:outreach","type":"TOPIC","weight":15.648092021712584},{"source":"person:Ashtin Dowler","target":"entity:personalization","type":"TOPIC","weight":37.91270281543094},{"source":"person:Ashtin Dowler","target":"entity:sdrs","type":"TOPIC","weight":36.655485496586195},{"source":"person:Ashtin Dowler","target":"entity:outbound","type":"TOPIC","weight":24.436990331057462},{"source":"person:Ashtin Dowler","target":"entity:template","type":"TOPIC","weight":12.95246434060893},{"source":"person:Ashtin Dowler","target":"entity:spreadsheet","type":"TOPIC","weight":15.031905882288767},{"source":"person:Ashtin Dowler","target":"entity:interested","type":"TOPIC","weight":15.031905882288767},{"source":"person:Ashtin Dowler","target":"entity:post","type":"TOPIC","weight":10.021270588192511},{"source":"person:Ashtin Dowler","target":"entity:track","type":"TOPIC","weight":7.613324979540639},{"source":"person:Ashtin Dowler","target":"entity:task","type":"TOPIC","weight":6.673317721049169},{"source":"person:David Carney","target":"entity:tailscale","type":"TOPIC","weight":50.30437921392435},{"source":"person:Mdavid6","target":"entity:system","type":"TOPIC","weight":8.67458148166498},{"source":"person:Manueld1","target":"entity:outbound","type":"TOPIC","weight":7.28828712054509},{"source":"person:Devcore(Pheonix)","target":"entity:standup","type":"TOPIC","weight":5.780743515792329},{"source":"person:Dave Mangulabnan","target":"entity:post","type":"TOPIC","weight":26.26957179480577},{"source":"person:Dave Mangulabnan","target":"entity:onmicrosoft onmicrosoft","type":"TOPIC","weight":30.546237913821827},{"source":"person:Dave Mangulabnan","target":"entity:tenant","type":"TOPIC","weight":40.07378834615129},{"source":"person:Dave Mangulabnan","target":"entity:standup","type":"TOPIC","weight":5.780743515792329},{"source":"person:Dave Mangulabnan","target":"entity:paradigm","type":"TOPIC","weight":4.8407362573008585},{"source":"person:Dave Mangulabnan","target":"entity:task","type":"TOPIC","weight":23.757206201545657},{"source":"person:Dave Mangulabnan","target":"entity:spreadsheet","type":"TOPIC","weight":15.031905882288767},{"source":"person:Dave Mangulabnan","target":"entity:interested","type":"TOPIC","weight":15.031905882288767},{"source":"person:Dave Mangulabnan","target":"entity:outreach","type":"TOPIC","weight":15.648092021712584},{"source":"person:Dave Mangulabnan","target":"entity:slack","type":"TOPIC","weight":17.99923868132106},{"source":"person:Dave Mangulabnan","target":"entity:upload","type":"TOPIC","weight":13.499429010990795},{"source":"person:Dave Mangulabnan","target":"entity:inbox","type":"TOPIC","weight":29.359370577398828},{"source":"person:Dave Mangulabnan","target":"entity:year","type":"TOPIC","weight":18.65624681526513},{"source":"person:Dave Mangulabnan","target":"entity:heygen","type":"TOPIC","weight":25.90492868121786},{"source":"person:Dave Mangulabnan","target":"entity:server","type":"TOPIC","weight":8.059612082169059},{"source":"person:Adham Soliman","target":"entity:track","type":"TOPIC","weight":22.839974938621918},{"source":"person:Adham Soliman","target":"entity:template","type":"TOPIC","weight":8.99961934066053},{"source":"person:Adham Soliman","target":"entity:task","type":"TOPIC","weight":98.49901505933174},{"source":"person:Adham Soliman","target":"entity:relay","type":"TOPIC","weight":13.499429010990795},{"source":"person:Adham Soliman","target":"entity:paradigm","type":"TOPIC","weight":14.522208771902577},{"source":"person:Adham Soliman","target":"entity:tenant","type":"TOPIC","weight":27.121324005542355},{"source":"person:Adham Soliman","target":"entity:insurance","type":"TOPIC","weight":14.168859664933425},{"source":"person:Adham Soliman","target":"entity:slack","type":"TOPIC","weight":17.99923868132106},{"source":"person:Adham Soliman","target":"entity:upload","type":"TOPIC","weight":13.499429010990795},{"source":"person:Adham Soliman","target":"entity:inbox","type":"TOPIC","weight":29.359370577398828},{"source":"person:Adham Soliman","target":"entity:year","type":"TOPIC","weight":18.65624681526513},{"source":"person:Adham Soliman","target":"entity:outreach","type":"TOPIC","weight":7.824046010856292}]};
+
+// ── Filter noise ──
+const NOISE_ENTITIES = new Set([
+  "onmicrosoft onmicrosoft", "web info", "info worker", "worker skipping",
+  "paused web", "whitney", "year", "interested", "job", "upload", "user",
+  "insurance"
+]);
+const NOISE_PERSONS = new Set(["Bronsexual", "Mdavid6"]);
+
+const noiseIds = new Set();
+RAW.nodes.forEach(n => {
+  if (n.type === "entity" && NOISE_ENTITIES.has(n.name)) noiseIds.add(n.id);
+  if (n.type === "person" && NOISE_PERSONS.has(n.name)) noiseIds.add(n.id);
+  if (n.type === "person" && n.clusters === 0) noiseIds.add(n.id);
+});
+
+const nodes = RAW.nodes.filter(n => !noiseIds.has(n.id));
+const nodeIds = new Set(nodes.map(n => n.id));
+const edges = RAW.edges.filter(e =>
+  nodeIds.has(e.source) && nodeIds.has(e.target) &&
+  !(e.type === "TOPIC" && e.weight < 10)
+);
+
+// ── Stats ──
+const personCount = nodes.filter(n => n.type === "person").length;
+const entityCount = nodes.filter(n => n.type === "entity").length;
+const interactsCount = edges.filter(e => e.type === "INTERACTS").length;
+const topicCount = edges.filter(e => e.type === "TOPIC").length;
+document.getElementById("stats").textContent = `${personCount} people · ${entityCount} topics · ${interactsCount + topicCount} connections`;
+
+// ── Build simulation nodes ──
+const nodeMap = new Map();
+const simNodes = nodes.map((n, i) => {
+  let radius;
+  if (n.type === "person") {
+    radius = Math.max(6, Math.min(32, 4 + Math.sqrt(n.clusters) * 1.5));
+  } else {
+    radius = Math.max(3, Math.min(14, 2 + Math.sqrt(n.freq) * 1.4));
+  }
+  const sn = {
+    id: n.id, type: n.type, name: n.name, radius,
+    clusters: n.clusters, freq: n.freq,
+    x: (Math.random() - 0.5) * 600,
+    y: (Math.random() - 0.5) * 600,
+    vx: 0, vy: 0,
+    pinned: false
+  };
+  nodeMap.set(n.id, sn);
+  return sn;
+});
+
+const simEdges = edges.map(e => ({
+  source: nodeMap.get(e.source),
+  target: nodeMap.get(e.target),
+  type: e.type,
+  weight: e.weight
+}));
+
+// Build adjacency for hover highlighting
+const adjacency = new Map();
+simNodes.forEach(n => adjacency.set(n, new Set()));
+simEdges.forEach(e => {
+  adjacency.get(e.source).add(e.target);
+  adjacency.get(e.target).add(e.source);
+});
+
+// ── Canvas setup ──
+const canvas = document.getElementById("graph");
+const ctx = canvas.getContext("2d");
+let W, H, dpr;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+// ── Camera ──
+let camX = 0, camY = 0, camZoom = 1;
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - W / 2) / camZoom + camX, y: (sy - H / 2) / camZoom + camY };
+}
+function worldToScreen(wx, wy) {
+  return { x: (wx - camX) * camZoom + W / 2, y: (wy - camY) * camZoom + H / 2 };
+}
+
+// ── Force simulation ──
+const ALPHA_DECAY = 0.0008;
+const VELOCITY_DECAY = 0.55;
+let alpha = 1;
+
+function tick() {
+  alpha = Math.max(0.001, alpha - ALPHA_DECAY);
+
+  // Repulsion (Barnes-Hut would be overkill for <100 nodes)
+  for (let i = 0; i < simNodes.length; i++) {
+    const a = simNodes[i];
+    for (let j = i + 1; j < simNodes.length; j++) {
+      const b = simNodes[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
+      const d = Math.sqrt(d2);
+
+      // Stronger repulsion between people
+      let strength;
+      if (a.type === "person" && b.type === "person") {
+        strength = 2800;
+      } else if (a.type === "entity" && b.type === "entity") {
+        strength = 400;
+      } else {
+        strength = 800;
+      }
+
+      const f = alpha * strength / d2;
+      const fx = dx / d * f, fy = dy / d * f;
+      if (!a.pinned) { a.vx -= fx; a.vy -= fy; }
+      if (!b.pinned) { b.vx += fx; b.vy += fy; }
+    }
+  }
+
+  // Attraction (edges)
+  for (const e of simEdges) {
+    const dx = e.target.x - e.source.x;
+    const dy = e.target.y - e.source.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    let idealLen, strength;
+    if (e.type === "INTERACTS") {
+      idealLen = 120 - Math.min(60, Math.sqrt(e.weight) * 5);
+      strength = 0.06 * Math.min(1, Math.sqrt(e.weight) / 4);
+    } else {
+      idealLen = 200;
+      strength = 0.008;
+    }
+
+    const displacement = d - idealLen;
+    const f = alpha * displacement * strength;
+    const fx = dx / d * f, fy = dy / d * f;
+    if (!e.source.pinned) { e.source.vx += fx; e.source.vy += fy; }
+    if (!e.target.pinned) { e.target.vx -= fx; e.target.vy -= fy; }
+  }
+
+  // Center gravity (gentle)
+  for (const n of simNodes) {
+    if (!n.pinned) {
+      n.vx -= n.x * alpha * 0.005;
+      n.vy -= n.y * alpha * 0.005;
+    }
+  }
+
+  // Integrate
+  for (const n of simNodes) {
+    if (n.pinned) { n.vx = 0; n.vy = 0; continue; }
+    n.vx *= VELOCITY_DECAY;
+    n.vy *= VELOCITY_DECAY;
+    n.x += n.vx;
+    n.y += n.vy;
+  }
+}
+
+// ── Interaction state ──
+let hoveredNode = null;
+let draggedNode = null;
+let isPanning = false;
+let panStartX, panStartY, panCamStartX, panCamStartY;
+let mouseX = -9999, mouseY = -9999;
+
+function hitTest(sx, sy) {
+  const w = screenToWorld(sx, sy);
+  let best = null, bestD = Infinity;
+  for (const n of simNodes) {
+    const dx = n.x - w.x, dy = n.y - w.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const hitRadius = n.radius / camZoom + n.radius;
+    if (d < hitRadius && d < bestD) { best = n; bestD = d; }
+  }
+  return best;
+}
+
+canvas.addEventListener("mousedown", e => {
+  const hit = hitTest(e.clientX, e.clientY);
+  if (hit) {
+    draggedNode = hit;
+    alpha = Math.max(alpha, 0.3);
+    canvas.classList.add("dragging");
+  } else {
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panCamStartX = camX; panCamStartY = camY;
+    canvas.classList.add("dragging");
+  }
+});
+
+canvas.addEventListener("mousemove", e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (draggedNode) {
+    const w = screenToWorld(e.clientX, e.clientY);
+    draggedNode.x = w.x; draggedNode.y = w.y;
+    draggedNode.vx = 0; draggedNode.vy = 0;
+    alpha = Math.max(alpha, 0.1);
+  } else if (isPanning) {
+    const dx = (e.clientX - panStartX) / camZoom;
+    const dy = (e.clientY - panStartY) / camZoom;
+    camX = panCamStartX - dx;
+    camY = panCamStartY - dy;
+  } else {
+    const hit = hitTest(e.clientX, e.clientY);
+    hoveredNode = hit;
+    canvas.style.cursor = hit ? "pointer" : "grab";
+  }
+});
+
+canvas.addEventListener("mouseup", e => {
+  if (draggedNode && !isPanning) {
+    // Check if it was a click (no significant drag)
+    const w = screenToWorld(e.clientX, e.clientY);
+    const dx = draggedNode.x - w.x, dy = draggedNode.y - w.y;
+    if (Math.sqrt(dx*dx+dy*dy) < 2) {
+      draggedNode.pinned = !draggedNode.pinned;
+    }
+  }
+  draggedNode = null;
+  isPanning = false;
+  canvas.classList.remove("dragging");
+});
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.08;
+  const newZoom = Math.max(0.1, Math.min(8, camZoom * factor));
+  // Zoom toward mouse position
+  const wx = (e.clientX - W / 2) / camZoom + camX;
+  const wy = (e.clientY - H / 2) / camZoom + camY;
+  camZoom = newZoom;
+  camX = wx - (e.clientX - W / 2) / camZoom;
+  camY = wy - (e.clientY - H / 2) / camZoom;
+}, { passive: false });
+
+// ── Tooltip ──
+const tooltip = document.getElementById("tooltip");
+const ttName = tooltip.querySelector(".tt-name");
+const ttType = tooltip.querySelector(".tt-type");
+const ttDetail = tooltip.querySelector(".tt-detail");
+
+function updateTooltip() {
+  if (hoveredNode && !draggedNode) {
+    const n = hoveredNode;
+    ttName.textContent = n.name;
+    ttType.textContent = n.type === "person" ? "Person" : "Topic";
+    if (n.type === "person") {
+      const connEdges = simEdges.filter(e => e.type === "INTERACTS" && (e.source === n || e.target === n));
+      const totalWeight = connEdges.reduce((s, e) => s + e.weight, 0);
+      ttName.style.color = "#5bbbf5";
+      ttDetail.textContent = `${n.clusters} conversations · ${connEdges.length} connections · ${totalWeight} interactions`;
+    } else {
+      const connEdges = simEdges.filter(e => e.type === "TOPIC" && (e.source === n || e.target === n));
+      ttName.style.color = "#f0a050";
+      ttDetail.textContent = `Frequency: ${n.freq} · ${connEdges.length} people discuss this`;
+    }
+    tooltip.style.display = "block";
+    let tx = mouseX + 16, ty = mouseY + 16;
+    if (tx + 240 > W) tx = mouseX - 256;
+    if (ty + 100 > H) ty = mouseY - 100;
+    tooltip.style.left = tx + "px";
+    tooltip.style.top = ty + "px";
+  } else {
+    tooltip.style.display = "none";
+  }
+}
+
+// ── Rendering ──
+const maxInteractWeight = Math.max(...simEdges.filter(e => e.type === "INTERACTS").map(e => e.weight));
+
+function draw() {
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle radial gradient background
+  const bgGrad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.7);
+  bgGrad.addColorStop(0, "#0e0e18");
+  bgGrad.addColorStop(1, "#0a0a0f");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Apply camera
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(camZoom, camZoom);
+  ctx.translate(-camX, -camY);
+
+  const isHovering = hoveredNode && !draggedNode;
+  const hoverSet = isHovering ? adjacency.get(hoveredNode) : null;
+
+  // ── Draw edges ──
+  for (const e of simEdges) {
+    const isHighlighted = isHovering && (e.source === hoveredNode || e.target === hoveredNode);
+    const isDimmed = isHovering && !isHighlighted;
+
+    if (e.type === "TOPIC") {
+      if (isDimmed) ctx.globalAlpha = 0.02;
+      else if (isHighlighted) ctx.globalAlpha = 0.4;
+      else ctx.globalAlpha = 0.08;
+      ctx.strokeStyle = "#f0a050";
+      ctx.lineWidth = 0.5;
+    } else {
+      const wNorm = e.weight / maxInteractWeight;
+      const thickness = 0.8 + wNorm * 6;
+      if (isDimmed) ctx.globalAlpha = 0.04;
+      else if (isHighlighted) ctx.globalAlpha = 0.9;
+      else ctx.globalAlpha = 0.15 + wNorm * 0.45;
+      ctx.lineWidth = thickness;
+
+      if (isHighlighted) {
+        ctx.strokeStyle = "#7cb8ff";
+      } else {
+        ctx.strokeStyle = `rgba(140, 180, 255, 1)`;
+      }
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(e.source.x, e.source.y);
+    ctx.lineTo(e.target.x, e.target.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // ── Draw nodes ──
+  for (const n of simNodes) {
+    const isHovered = n === hoveredNode;
+    const isConnected = isHovering && hoverSet && hoverSet.has(n);
+    const isDimmed = isHovering && !isHovered && !isConnected;
+
+    const r = n.radius;
+
+    if (isDimmed) ctx.globalAlpha = 0.12;
+    else ctx.globalAlpha = 1;
+
+    if (n.type === "person") {
+      // Glow
+      const glowSize = isHovered ? r * 3.5 : r * 2.2;
+      const glow = ctx.createRadialGradient(n.x, n.y, r * 0.3, n.x, n.y, glowSize);
+      if (isHovered) {
+        glow.addColorStop(0, "rgba(90, 180, 255, 0.35)");
+        glow.addColorStop(0.5, "rgba(60, 140, 255, 0.12)");
+        glow.addColorStop(1, "rgba(40, 100, 255, 0)");
+      } else {
+        glow.addColorStop(0, "rgba(74, 158, 255, 0.2)");
+        glow.addColorStop(0.5, "rgba(60, 130, 255, 0.06)");
+        glow.addColorStop(1, "rgba(40, 100, 255, 0)");
+      }
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Node body
+      const grad = ctx.createRadialGradient(n.x - r * 0.3, n.y - r * 0.3, r * 0.1, n.x, n.y, r);
+      grad.addColorStop(0, isHovered ? "#8ecfff" : "#5bbbf5");
+      grad.addColorStop(0.7, isHovered ? "#4a9eff" : "#3a7ed8");
+      grad.addColorStop(1, isHovered ? "#2670cc" : "#2255a0");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pin indicator
+      if (n.pinned) {
+        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else {
+      // Entity glow
+      const glowSize = isHovered ? r * 4 : r * 2.5;
+      const glow = ctx.createRadialGradient(n.x, n.y, r * 0.2, n.x, n.y, glowSize);
+      if (isHovered) {
+        glow.addColorStop(0, "rgba(240, 170, 80, 0.3)");
+        glow.addColorStop(1, "rgba(240, 140, 50, 0)");
+      } else {
+        glow.addColorStop(0, "rgba(240, 160, 80, 0.15)");
+        glow.addColorStop(1, "rgba(240, 140, 50, 0)");
+      }
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, glowSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Entity body
+      const grad = ctx.createRadialGradient(n.x - r * 0.2, n.y - r * 0.2, r * 0.1, n.x, n.y, r);
+      grad.addColorStop(0, isHovered ? "#ffc870" : "#f0a050");
+      grad.addColorStop(1, isHovered ? "#e08830" : "#c07030");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (n.pinned) {
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r + 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // ── Labels ──
+    if (!isDimmed) {
+      const fontSize = n.type === "person" ? Math.max(10, Math.min(14, r * 0.8)) : Math.max(8, Math.min(11, r * 1.2));
+      ctx.font = `${n.type === "person" ? 500 : 400} ${fontSize}px -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+
+      const labelY = n.y + r + 4;
+      const text = n.name;
+
+      // Text shadow for readability
+      ctx.fillStyle = "rgba(10, 10, 15, 0.85)";
+      ctx.fillText(text, n.x + 1, labelY + 1);
+
+      if (n.type === "person") {
+        ctx.fillStyle = isHovered ? "#c8e4ff" : "rgba(160, 190, 230, 0.8)";
+      } else {
+        ctx.fillStyle = isHovered ? "#ffe0b0" : "rgba(200, 170, 130, 0.65)";
+      }
+      ctx.fillText(text, n.x, labelY);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+
+  updateTooltip();
+}
+
+// ── Animation loop ──
+function frame() {
+  tick();
+  draw();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

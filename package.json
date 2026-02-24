@@ -1,0 +1,42 @@
+{
+  "name": "betterrag",
+  "version": "1.0.0",
+  "description": "Conversation graph indexer — build a traversable graph from chat exports (Slack, WhatsApp, Gmail, mbox)",
+  "type": "module",
+  "bin": {
+    "betterrag": "src/cli.js"
+  },
+  "main": "./src/index.js",
+  "exports": "./src/index.js",
+  "scripts": {
+    "start": "node src/cli.js"
+  },
+  "keywords": [
+    "rag",
+    "graph",
+    "conversation",
+    "chat",
+    "slack",
+    "whatsapp",
+    "gmail",
+    "knowledge-graph",
+    "pagerank",
+    "search"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mylesdevcore/betterrag"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src/"
+  ],
+  "dependencies": {
+    "graphology": "^0.25.4",
+    "graphology-metrics": "^2.3.0",
+    "graphology-operators": "^1.6.0"
+  }
+}

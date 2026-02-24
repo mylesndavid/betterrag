@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>betterrag</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', Menlo, monospace; background: #0a0a0a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+
+/* Upload screen */
+#upload-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 40px; }
+#upload-screen h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+#upload-screen .sub { font-size: 13px; color: #666; margin-bottom: 32px; }
+.upload-box { width: 100%; max-width: 600px; }
+.drop-zone { border: 2px dashed #333; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 16px; }
+.drop-zone:hover, .drop-zone.dragover { border-color: #666; background: #111; }
+.drop-zone p { color: #888; font-size: 13px; margin-top: 8px; }
+.drop-zone .icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+.or { text-align: center; color: #444; font-size: 12px; margin: 12px 0; }
+textarea.paste-area { width: 100%; height: 180px; background: #111; border: 1px solid #222; border-radius: 8px; color: #ccc; padding: 12px; font-size: 12px; font-family: inherit; resize: vertical; outline: none; }
+textarea.paste-area:focus { border-color: #444; }
+textarea.paste-area::placeholder { color: #444; }
+.chat-name-row { display: flex; gap: 8px; margin-top: 12px; }
+.chat-name-row input { flex: 1; padding: 8px 12px; background: #111; border: 1px solid #222; border-radius: 6px; color: #fff; font-size: 13px; font-family: inherit; outline: none; }
+.chat-name-row input:focus { border-color: #444; }
+.btn { padding: 8px 20px; background: #fff; color: #000; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn:hover { background: #ddd; }
+.btn:disabled { opacity: 0.3; cursor: default; }
+.btn-sm { padding: 4px 12px; font-size: 11px; }
+.btn-outline { background: transparent; color: #888; border: 1px solid #333; }
+.btn-outline:hover { color: #fff; border-color: #555; background: transparent; }
+.upload-status { margin-top: 16px; font-size: 12px; color: #888; min-height: 20px; }
+.upload-status.error { color: #f87171; }
+.upload-status.success { color: #4ade80; }
+.source-tabs { display: flex; gap: 2px; margin-bottom: 16px; background: #111; border-radius: 8px; padding: 3px; }
+.source-tab { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: #666; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; }
+.source-tab:hover { color: #aaa; }
+.source-tab.active { background: #1a1a1a; color: #fff; }
+.gmail-form { display: flex; flex-direction: column; gap: 10px; }
+.gmail-form input { padding: 10px 12px; background: #111; border: 1px solid #222; border-radius: 6px; color: #fff; font-size: 13px; font-family: inherit; outline: none; }
+.gmail-form input:focus { border-color: #444; }
+.gmail-form input::placeholder { color: #444; }
+.gmail-opts { display: flex; gap: 16px; align-items: center; }
+.gmail-opts label { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
+.gmail-opts select { padding: 4px 8px; background: #111; border: 1px solid #222; border-radius: 4px; color: #fff; font-size: 12px; font-family: inherit; outline: none; }
+.gmail-help { font-size: 11px; color: #444; line-height: 1.5; margin-top: 4px; }
+.gmail-help a { color: #60a5fa; text-decoration: none; }
+.gmail-help a:hover { text-decoration: underline; }
+
+/* Explorer */
+#explorer { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+header { padding: 8px 16px; background: #111; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+header h1 { font-size: 13px; color: #666; font-weight: 400; white-space: nowrap; }
+header h1 b { color: #fff; }
+.search-box { flex: 1; max-width: 320px; }
+.search-box input { width: 100%; padding: 5px 10px; background: #1a1a1a; border: 1px solid #262626; border-radius: 6px; color: #fff; font-size: 12px; font-family: inherit; outline: none; }
+.search-box input:focus { border-color: #444; }
+nav { display: flex; gap: 2px; }
+nav button { padding: 4px 10px; background: transparent; border: 1px solid transparent; border-radius: 5px; color: #666; font-size: 11px; cursor: pointer; font-family: inherit; }
+nav button:hover { color: #aaa; }
+nav button.active { background: #1a1a1a; color: #fff; border-color: #262626; }
+.new-btn { padding: 4px 10px; background: transparent; border: 1px solid #333; border-radius: 5px; color: #888; font-size: 11px; cursor: pointer; font-family: inherit; margin-left: auto; }
+.new-btn:hover { color: #fff; border-color: #555; }
+main { flex: 1; display: flex; overflow: hidden; }
+.panel { width: 260px; border-right: 1px solid #1a1a1a; overflow-y: auto; flex-shrink: 0; }
+.canvas-wrap { flex: 1; position: relative; overflow: hidden; cursor: grab; }
+.canvas-wrap:active { cursor: grabbing; }
+canvas { position: absolute; top: 0; left: 0; }
+.detail-panel { width: 320px; border-left: 1px solid #1a1a1a; overflow-y: auto; padding: 14px; display: none; flex-shrink: 0; }
+.detail-panel.open { display: block; }
+.detail-panel h2 { font-size: 13px; margin-bottom: 10px; color: #fff; display: flex; align-items: center; gap: 6px; }
+.detail-panel .meta { font-size: 11px; color: #555; margin-bottom: 3px; }
+.detail-panel .section { margin-top: 14px; }
+.detail-panel .section h3 { font-size: 11px; color: #444; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+.node-list { list-style: none; }
+.node-list li { padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+.node-list li:hover { background: #151515; }
+.node-list li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.node-list .rank { color: #444; font-size: 10px; flex-shrink: 0; }
+.badge { display: inline-block; width: 16px; height: 16px; border-radius: 3px; font-size: 9px; font-weight: 700; text-align: center; line-height: 16px; flex-shrink: 0; }
+.badge-person { background: #14532d; color: #4ade80; }
+.badge-channel { background: #172554; color: #60a5fa; }
+.badge-cluster { background: #422006; color: #fbbf24; }
+.badge-entity { background: #2e1065; color: #c084fc; }
+.raw-text { font-size: 11px; color: #888; background: #0f0f0f; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin-top: 8px; line-height: 1.5; border: 1px solid #1a1a1a; }
+.annotation { background: #0f0f0f; border: 1px solid #1a1a1a; padding: 6px 8px; border-radius: 4px; margin-top: 4px; font-size: 11px; }
+.annotation .ann-type { color: #c084fc; font-weight: 600; }
+.empty { text-align: center; color: #444; padding: 40px; font-size: 12px; }
+.stats-grid { font-size: 12px; padding: 12px; }
+.stats-grid p { margin-bottom: 4px; }
+.stats-grid strong { color: #fff; }
+.stats-grid h4 { color: #555; margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Enrichment display */
+.enrichment-box { background: #0d1117; border: 1px solid #1a2a1a; border-radius: 6px; padding: 10px; margin-top: 8px; }
+.enrichment-box .summary { color: #ccc; font-size: 12px; line-height: 1.5; margin-bottom: 8px; }
+.enrichment-box .decisions { list-style: none; margin-bottom: 8px; }
+.enrichment-box .decisions li { font-size: 11px; color: #60a5fa; padding: 2px 0; }
+.enrichment-box .decisions li::before { content: '> '; color: #333; }
+.enrichment-box .topics-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.topic-tag { display: inline-block; padding: 2px 8px; background: #1a1a2e; border: 1px solid #2a2a4e; border-radius: 10px; font-size: 10px; color: #c084fc; }
+.sentiment-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.edge-group { margin-bottom: 8px; }
+.edge-type-label { display: inline-block; padding: 2px 8px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; font-size: 10px; font-weight: 600; color: #f0a; letter-spacing: 0.5px; margin-bottom: 4px; }
+.edge-detail { color: #555; font-size: 10px; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sentiment-productive { background: #14532d; color: #4ade80; }
+.sentiment-casual { background: #1a2a3a; color: #60a5fa; }
+.sentiment-urgent { background: #7f1d1d; color: #fca5a5; }
+.sentiment-tense { background: #78350f; color: #fbbf24; }
+.sentiment-informational { background: #1a1a2e; color: #a78bfa; }
+
+/* Breadcrumb bar */
+.breadcrumbs { padding: 4px 16px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; display: none; align-items: center; gap: 4px; font-size: 11px; flex-shrink: 0; overflow-x: auto; white-space: nowrap; }
+.breadcrumbs.active { display: flex; }
+.breadcrumbs .crumb { color: #666; cursor: pointer; padding: 2px 6px; border-radius: 3px; }
+.breadcrumbs .crumb:hover { color: #ccc; background: #1a1a1a; }
+.breadcrumbs .crumb.current { color: #fff; background: #1a1a1a; }
+.breadcrumbs .sep { color: #333; }
+.breadcrumbs .back-btn { color: #888; cursor: pointer; padding: 2px 8px; border-radius: 3px; border: 1px solid #262626; margin-right: 6px; }
+.breadcrumbs .back-btn:hover { color: #fff; border-color: #444; }
+
+/* Tooltip */
+.tooltip { position: absolute; pointer-events: none; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #ccc; z-index: 10; display: none; max-width: 250px; }
+.tooltip .tt-type { font-size: 9px; color: #666; text-transform: uppercase; }
+.tooltip .tt-name { color: #fff; font-weight: 600; }
+.tooltip .tt-detail { color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Upload / Paste screen -->
+<div id="upload-screen">
+  <h1>betterrag</h1>
+  <p class="sub">Index your conversations into a traversable graph</p>
+  <div class="upload-box">
+    <!-- Tab switcher -->
+    <div class="source-tabs">
+      <button class="source-tab active" data-source="whatsapp">WhatsApp</button>
+      <button class="source-tab" data-source="gmail">Gmail</button>
+    </div>
+
+    <!-- WhatsApp source -->
+    <div class="source-panel" id="source-whatsapp">
+      <div class="drop-zone" id="drop-zone">
+        <div class="icon">+</div>
+        <p>Drop a <b>.txt</b> file here or click to browse</p>
+        <input type="file" id="file-input" accept=".txt" style="display:none" />
+      </div>
+      <div class="or">— or paste the chat text —</div>
+      <textarea class="paste-area" id="paste-area" placeholder="Paste WhatsApp chat export here..."></textarea>
+      <div class="chat-name-row">
+        <input type="text" id="chat-name" placeholder="Chat name (optional)" />
+        <button class="btn" id="go-btn">Index it</button>
+      </div>
+    </div>
+
+    <!-- Gmail source -->
+    <div class="source-panel" id="source-gmail" style="display:none">
+      <div class="gmail-form">
+        <input type="email" id="gmail-email" placeholder="you@gmail.com" autocomplete="email" />
+        <input type="password" id="gmail-password" placeholder="App password" autocomplete="current-password" />
+        <div class="gmail-opts">
+          <label>Last <select id="gmail-since">
+            <option value="1">1 month</option>
+            <option value="3" selected>3 months</option>
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+          </select></label>
+          <label>Up to <select id="gmail-limit">
+            <option value="200">200</option>
+            <option value="500" selected>500</option>
+            <option value="1000">1000</option>
+            <option value="2000">2000</option>
+          </select> threads</label>
+        </div>
+        <button class="btn" id="gmail-go-btn">Connect &amp; Index</button>
+        <p class="gmail-help">Get an app password at <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a>.<br>Only threads where you sent a message are indexed.</p>
+      </div>
+    </div>
+
+    <div class="upload-status" id="upload-status"></div>
+  </div>
+</div>
+
+<!-- Graph explorer -->
+<div id="explorer">
+  <header>
+    <h1><b>betterrag</b></h1>
+    <div class="search-box"><input id="search" type="text" placeholder="Search..." /></div>
+    <nav>
+      <button class="active" data-view="people">People</button>
+      <button data-view="channels">Channels</button>
+      <button data-view="clusters">Clusters</button>
+      <button data-view="graph">Graph</button>
+      <button data-view="hot">Hot</button>
+      <button data-view="stats">Stats</button>
+    </nav>
+    <button class="new-btn" id="new-chat-btn">+ New chat</button>
+  </header>
+  <div class="breadcrumbs" id="breadcrumbs">
+    <span class="back-btn" id="back-btn">&larr;</span>
+  </div>
+  <main>
+    <div class="panel" id="panel"></div>
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="graph"></canvas>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="detail-panel" id="detail"></div>
+  </main>
+</div>
+
+<script>
+const API = '';
+const COLORS = { person: '#4ade80', channel: '#60a5fa', cluster: '#fbbf24', entity: '#c084fc' };
+const DIM_COLORS = { person: '#1a3a2a', channel: '#1a2a3a', cluster: '#2a2010', entity: '#2a1a3a' };
+
+// ---- State ----
+let simNodes = [];
+let simEdges = [];
+let focusNodeId = null;
+let hoveredNode = null;
+let searchHighlightIds = new Set(); // IDs of nodes matching current search
+let history = [];
+let animFrame = null;
+let sim = null; // force simulation state
+let camera = { x: 0, y: 0, zoom: 1 };
+let dragging = null; // { node } or { pan: true, startX, startY, camX, camY }
+let currentView = 'people';
+
+// ---- Source tab switching ----
+document.querySelectorAll('.source-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.source-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.source-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('source-' + tab.dataset.source).style.display = '';
+    setStatus('');
+  });
+});
+
+// ---- WhatsApp upload handling ----
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const pasteArea = document.getElementById('paste-area');
+const goBtn = document.getElementById('go-btn');
+const statusEl = document.getElementById('upload-status');
+const chatNameInput = document.getElementById('chat-name');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) readAndUpload(file);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) readAndUpload(fileInput.files[0]); });
+
+function readAndUpload(file) {
+  const name = file.name.replace(/\.txt$/i, '').replace(/WhatsApp Chat with /i, '');
+  chatNameInput.value = name;
+  const reader = new FileReader();
+  reader.onload = () => { pasteArea.value = reader.result; doUpload(reader.result, name); };
+  reader.readAsText(file);
+}
+
+goBtn.addEventListener('click', () => {
+  const text = pasteArea.value.trim();
+  if (!text) { setStatus('Paste some chat text first', 'error'); return; }
+  doUpload(text, chatNameInput.value.trim() || 'chat');
+});
+
+async function doUpload(text, name) {
+  goBtn.disabled = true;
+  setStatus('Indexing...');
+  try {
+    const r = await fetch(API + '/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, name }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Upload failed');
+    setStatus(`${data.messages} messages, ${data.people} people, ${data.clusters} clusters`, 'success');
+    setTimeout(() => showExplorer(), 500);
+  } catch (e) {
+    setStatus(e.message, 'error');
+  } finally {
+    goBtn.disabled = false;
+  }
+}
+
+// ---- Gmail connect ----
+const gmailGoBtn = document.getElementById('gmail-go-btn');
+gmailGoBtn.addEventListener('click', async () => {
+  const email = document.getElementById('gmail-email').value.trim();
+  const password = document.getElementById('gmail-password').value.trim();
+  if (!email || !password) { setStatus('Enter your email and app password', 'error'); return; }
+
+  const since = document.getElementById('gmail-since').value;
+  const limit = document.getElementById('gmail-limit').value;
+
+  gmailGoBtn.disabled = true;
+  setStatus('Connecting to Gmail...');
+
+  try {
+    const r = await fetch(API + '/api/gmail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, since: parseInt(since), limit: parseInt(limit) }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Gmail connection failed');
+
+    // Stream progress updates via polling
+    if (data.started) {
+      await pollGmailProgress();
+    } else {
+      setStatus(`${data.messages} messages, ${data.people} people, ${data.clusters} clusters`, 'success');
+      setTimeout(() => showExplorer(), 500);
+    }
+  } catch (e) {
+    setStatus(e.message, 'error');
+  } finally {
+    gmailGoBtn.disabled = false;
+  }
+});
+
+async function pollGmailProgress() {
+  const poll = async () => {
+    try {
+      const r = await fetch(API + '/api/gmail/status');
+      const data = await r.json();
+      if (data.done) {
+        if (data.error) {
+          setStatus(data.error, 'error');
+        } else {
+          setStatus(`${data.messages} messages, ${data.people} people, ${data.clusters} clusters`, 'success');
+          setTimeout(() => showExplorer(), 500);
+        }
+        return;
+      }
+      setStatus(data.status || 'Working...');
+      setTimeout(poll, 1000);
+    } catch { setTimeout(poll, 2000); }
+  };
+  poll();
+}
+
+function setStatus(msg, type = '') {
+  statusEl.textContent = msg;
+  statusEl.className = 'upload-status' + (type ? ' ' + type : '');
+}
+
+// ---- Explorer ----
+function showExplorer() {
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('explorer').style.display = 'flex';
+  loadView('people');
+  resizeCanvas();
+}
+
+function showUpload() {
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('explorer').style.display = 'none';
+  document.getElementById('detail').classList.remove('open');
+  pasteArea.value = '';
+  chatNameInput.value = '';
+  setStatus('');
+}
+
+document.getElementById('new-chat-btn').addEventListener('click', showUpload);
+
+(async () => {
+  try {
+    const { loaded } = await (await fetch(API + '/api/status')).json();
+    if (loaded) showExplorer();
+  } catch {}
+})();
+
+// ---- Nav ----
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadView(btn.dataset.view);
+  });
+});
+
+document.getElementById('search').addEventListener('input', debounce(async (e) => {
+  const q = e.target.value.trim();
+  if (q.length < 2) {
+    searchHighlightIds = new Set();
+    render();
+    return loadView(currentView === 'search' ? 'people' : currentView);
+  }
+  const results = await apiFetch(`/api/query?q=${encodeURIComponent(q)}`);
+  renderSearchResults(results);
+  loadSearchGraph(results);
+}, 250));
+
+async function apiFetch(path) { return (await fetch(API + path)).json(); }
+
+// ---- Views ----
+async function loadView(view) {
+  currentView = view;
+  const panel = document.getElementById('panel');
+  switch (view) {
+    case 'people': {
+      const data = await apiFetch('/api/people?limit=50');
+      panel.innerHTML = '<ul class="node-list">' + data.map((p, i) =>
+        `<li onclick="navigateTo('${esc(p.id)}')"><span class="badge badge-person">P</span><span class="name">${esc(p.name)}</span><span class="rank">${(p.pagerank*1000).toFixed(1)}</span></li>`
+      ).join('') + '</ul>';
+      break;
+    }
+    case 'channels': {
+      const data = await apiFetch('/api/channels?limit=50');
+      panel.innerHTML = '<ul class="node-list">' + data.map(ch =>
+        `<li onclick="navigateTo('${esc(ch.id)}')"><span class="badge badge-channel">C</span><span class="name">#${esc(ch.name)}</span><span class="rank">${ch.channelType || ''}</span></li>`
+      ).join('') + '</ul>';
+      break;
+    }
+    case 'clusters': {
+      const data = await apiFetch('/api/clusters?limit=60');
+      panel.innerHTML = '<ul class="node-list">' + data.map(c => {
+        const enriched = c.annotations?.some(a => a.type === 'enrichment');
+        const enrichAnn = c.annotations?.find(a => a.type === 'enrichment');
+        const label = enrichAnn ? enrichAnn.summary.slice(0, 40) : `#${esc(c.channel)} ${shortDate(c.startTime)}`;
+        return `<li onclick="navigateTo('${esc(c.id)}')"><span class="badge badge-cluster">K</span><span class="name">${esc(label)}</span><span class="rank">${enriched ? '*' : ''}${c.messageCount}</span></li>`;
+      }).join('') + '</ul>';
+      break;
+    }
+    case 'graph': {
+      await loadOverviewGraph();
+      panel.innerHTML = '<div class="stats-grid"><p style="color:#888">Social overview: people + top entities</p></div>';
+      break;
+    }
+    case 'hot': {
+      const data = await apiFetch('/api/hot');
+      if (!data.length) { panel.innerHTML = '<div class="empty">No visited nodes yet.<br>Click around to explore!</div>'; break; }
+      panel.innerHTML = '<ul class="node-list">' + data.map(n =>
+        `<li onclick="navigateTo('${esc(n.id)}')"><span class="badge badge-${n.type}">${n.type[0].toUpperCase()}</span><span class="name">${esc(n.name || n.id)}</span><span class="rank">${n.heat}</span></li>`
+      ).join('') + '</ul>';
+      break;
+    }
+    case 'stats': {
+      const data = await apiFetch('/api/stats');
+      panel.innerHTML = `<div class="stats-grid">
+        <p>Nodes: <strong>${data.nodes}</strong></p>
+        <p>Edges: <strong>${data.edges}</strong></p>
+        <h4>Node Types</h4>
+        ${Object.entries(data.nodeTypes||{}).map(([k,v])=>`<p>${k}: <strong>${v}</strong></p>`).join('')}
+        <h4>Edge Types</h4>
+        ${Object.entries(data.edgeTypes||{}).map(([k,v])=>`<p>${k}: <strong>${v}</strong></p>`).join('')}
+        ${data.cache ? `<h4>Cache</h4><p>Saved: ${new Date(data.cache.savedAt).toLocaleString()}</p>` : ''}
+      </div>`;
+      break;
+    }
+  }
+}
+
+function renderSearchResults(results) {
+  const panel = document.getElementById('panel');
+  if (!results.length) { panel.innerHTML = '<div class="empty">No results</div>'; return; }
+  panel.innerHTML = '<ul class="node-list">' + results.slice(0, 30).map(r =>
+    `<li onclick="focusSearchNode('${esc(r.id)}')"><span class="badge badge-${r.type}">${r.type[0].toUpperCase()}</span><span class="name">${esc(r.name || r.id)}</span><span class="rank">${r.searchScore}</span></li>`
+  ).join('') + '</ul>';
+}
+
+// ---- Search → Graph integration ----
+async function loadSearchGraph(results) {
+  if (!results.length) return;
+
+  // Collect matching IDs for highlighting
+  const matchIds = new Set(results.map(r => r.id));
+  searchHighlightIds = matchIds;
+
+  // Get 1-hop neighbors for all matching nodes (limit to top 10 results)
+  const nodeMap = new Map();
+  const edgeList = [];
+  const seen = new Set();
+
+  for (const r of results.slice(0, 10)) {
+    const traversal = await apiFetch(`/api/traverse?id=${encodeURIComponent(r.id)}&hops=1`);
+    if (!traversal) continue;
+
+    for (const n of traversal) {
+      if (!nodeMap.has(n.id)) {
+        nodeMap.set(n.id, {
+          id: n.id,
+          type: n.type,
+          name: n.name || n.id,
+          depth: matchIds.has(n.id) ? 0 : 1,
+          x: 0, y: 0, vx: 0, vy: 0,
+          pagerank: n.pagerank || 0,
+          rawText: n.rawText,
+          startTime: n.startTime,
+          messageCount: n.messageCount,
+          participantCount: n.participantCount,
+          globalFrequency: n.globalFrequency,
+        });
+      }
+      if (n.edgesFromParent) {
+        for (const e of n.edgesFromParent) {
+          const parent = traversal.find(p => p.depth === n.depth - 1);
+          if (parent) {
+            const key = `${parent.id}-${n.id}-${e.type}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              edgeList.push({ source: parent.id, target: n.id, type: e.type, weight: e.weight || 1 });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Layout: matching nodes in center area, neighbors on outside
+  const wrap = document.getElementById('canvas-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const cx = W / 2, cy = H / 2;
+
+  const matchNodes = [...nodeMap.values()].filter(n => matchIds.has(n.id));
+  const neighborNodes = [...nodeMap.values()].filter(n => !matchIds.has(n.id));
+
+  const r1 = Math.min(W, H) * 0.15;
+  for (let i = 0; i < matchNodes.length; i++) {
+    const a = (2 * Math.PI * i / Math.max(matchNodes.length, 1)) - Math.PI / 2;
+    matchNodes[i].x = cx + Math.cos(a) * r1 + (Math.random() - 0.5) * 30;
+    matchNodes[i].y = cy + Math.sin(a) * r1 + (Math.random() - 0.5) * 30;
+  }
+
+  const r2 = Math.min(W, H) * 0.35;
+  for (let i = 0; i < neighborNodes.length; i++) {
+    const a = (2 * Math.PI * i / Math.max(neighborNodes.length, 1)) - Math.PI / 2 + 0.15;
+    neighborNodes[i].x = cx + Math.cos(a) * r2 + (Math.random() - 0.5) * 40;
+    neighborNodes[i].y = cy + Math.sin(a) * r2 + (Math.random() - 0.5) * 40;
+  }
+
+  focusNodeId = null;
+  simNodes = [...nodeMap.values()];
+  simEdges = edgeList.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+  camera = { x: 0, y: 0, zoom: 1 };
+  startSimulation();
+}
+
+function focusSearchNode(nodeId) {
+  // If the node is in the current graph, pan to it; otherwise navigateTo
+  const node = simNodes.find(n => n.id === nodeId);
+  if (node) {
+    const wrap = document.getElementById('canvas-wrap');
+    camera.x = wrap.clientWidth / 2 - node.x * camera.zoom;
+    camera.y = wrap.clientHeight / 2 - node.y * camera.zoom;
+    focusNodeId = nodeId;
+    updateDetail(nodeId);
+    updateBreadcrumbs();
+    render();
+  } else {
+    navigateTo(nodeId);
+  }
+}
+
+// ---- Overview graph (Graph tab) ----
+async function loadOverviewGraph() {
+  const data = await apiFetch('/api/graph/overview');
+  if (!data.nodes?.length) return;
+
+  const wrap = document.getElementById('canvas-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const cx = W / 2, cy = H / 2;
+
+  const nodeMap = new Map();
+  for (const n of data.nodes) {
+    nodeMap.set(n.id, {
+      ...n,
+      depth: n.type === 'person' ? 0 : 1,
+      x: cx + (Math.random() - 0.5) * W * 0.6,
+      y: cy + (Math.random() - 0.5) * H * 0.6,
+      vx: 0, vy: 0,
+    });
+  }
+
+  focusNodeId = null;
+  searchHighlightIds = new Set();
+  simNodes = [...nodeMap.values()];
+  simEdges = data.edges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+  camera = { x: 0, y: 0, zoom: 1 };
+  startSimulation();
+}
+
+// ---- Navigation / Traversal ----
+async function navigateTo(nodeId) {
+  searchHighlightIds = new Set();
+  if (focusNodeId && focusNodeId !== nodeId) {
+    history.push(focusNodeId);
+    if (history.length > 30) history.shift();
+  }
+  focusNodeId = nodeId;
+  await loadNodeGraph(nodeId);
+  updateDetail(nodeId);
+  updateBreadcrumbs();
+}
+
+function goBack() {
+  if (!history.length) return;
+  const prev = history.pop();
+  focusNodeId = prev;
+  searchHighlightIds = new Set();
+  loadNodeGraph(prev);
+  updateDetail(prev);
+  updateBreadcrumbs();
+}
+
+document.getElementById('back-btn').addEventListener('click', goBack);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' || (e.key === 'Backspace' && !['INPUT','TEXTAREA'].includes(e.target.tagName))) goBack();
+});
+
+function updateBreadcrumbs() {
+  const el = document.getElementById('breadcrumbs');
+  if (!history.length && !focusNodeId) { el.classList.remove('active'); return; }
+  el.classList.add('active');
+  let html = '<span class="back-btn" id="back-btn" onclick="goBack()">&larr;</span>';
+  const trail = [...history.slice(-5), focusNodeId].filter(Boolean);
+  for (let i = 0; i < trail.length; i++) {
+    if (i > 0) html += '<span class="sep">/</span>';
+    const id = trail[i];
+    const label = nodeLabel(id);
+    const cls = i === trail.length - 1 ? 'crumb current' : 'crumb';
+    html += `<span class="${cls}" onclick="navigateTo('${esc(id)}')">${esc(label)}</span>`;
+  }
+  el.innerHTML = html;
+}
+
+function nodeLabel(id) {
+  const n = simNodes.find(n => n.id === id);
+  if (n) return n.name || n.id;
+  // Parse from id
+  const [type, ...rest] = id.split(':');
+  return rest.join(':') || id;
+}
+
+// ---- Detail panel ----
+async function updateDetail(nodeId) {
+  const detail = document.getElementById('detail');
+  detail.classList.add('open');
+
+  const traversal = await apiFetch(`/api/traverse?id=${encodeURIComponent(nodeId)}&hops=1`);
+  if (!traversal) { detail.innerHTML = '<div class="empty">Not found</div>'; return; }
+
+  const node = traversal[0];
+  const neighbors = traversal.slice(1);
+
+  let html = `<h2><span class="badge badge-${node.type}">${node.type[0].toUpperCase()}</span> ${esc(node.name || node.id)}</h2>`;
+  if (node.pagerank) html += `<p class="meta">PageRank: ${node.pagerank.toFixed(6)}</p>`;
+  html += `<p class="meta">Visits: ${node.visit_count || 0}</p>`;
+
+  if (node.type === 'cluster') {
+    html += `<p class="meta">${new Date(node.startTime).toLocaleString()}</p>`;
+    html += `<p class="meta">${node.participantCount} people, ${node.messageCount} messages</p>`;
+
+    // Show enrichment prominently if it exists
+    const enrichAnn = node.annotations?.find(a => a.type === 'enrichment');
+    if (enrichAnn) {
+      html += renderEnrichment(enrichAnn);
+    } else {
+      html += `<div style="margin-top:8px"><button class="btn btn-sm btn-outline" onclick="enrichNode('${esc(node.id)}', this)">Enrich with AI</button></div>`;
+    }
+  }
+
+  if (node.type === 'entity') html += `<p class="meta">Frequency: ${node.globalFrequency || 0}</p>`;
+  if (node.rawText) html += `<div class="raw-text">${esc(node.rawText.slice(0, 3000))}</div>`;
+
+  // Show non-enrichment annotations
+  const otherAnns = (node.annotations || []).filter(a => a.type !== 'enrichment');
+  if (otherAnns.length) {
+    html += `<div class="section"><h3>Annotations</h3>`;
+    for (const ann of otherAnns) html += `<div class="annotation"><span class="ann-type">${esc(ann.type)}</span> ${esc(ann.text)}</div>`;
+    html += '</div>';
+  }
+
+  if (neighbors.length) {
+    // Separate AI/semantic edges from mechanical ones
+    const mechanicalEdges = new Set(['SENT_IN', 'CONTAINS', 'PARTICIPATES', 'MENTIONS', 'CO_OCCURS', 'INTERACTS']);
+    const aiNeighbors = [];
+    const regularNeighbors = [];
+
+    for (const n of neighbors) {
+      const edges = n.edgesFromParent || [];
+      const hasAI = edges.some(e => !mechanicalEdges.has(e.type));
+      const hasMech = edges.some(e => mechanicalEdges.has(e.type));
+      if (hasAI) aiNeighbors.push(n);
+      if (hasMech || !hasAI) regularNeighbors.push(n);
+    }
+
+    // Show AI/semantic relationships first
+    if (aiNeighbors.length) {
+      // Group by edge type
+      const byEdge = {};
+      for (const n of aiNeighbors) {
+        for (const e of (n.edgesFromParent || [])) {
+          if (mechanicalEdges.has(e.type)) continue;
+          (byEdge[e.type] ||= []).push({ node: n, detail: e.detail || '' });
+        }
+      }
+      html += '<div class="section"><h3>Relationships</h3>';
+      for (const [edgeType, items] of Object.entries(byEdge)) {
+        html += `<div class="edge-group"><span class="edge-type-label">${esc(edgeType)}</span><ul class="node-list">`;
+        for (const { node: n, detail } of items.slice(0, 15)) {
+          html += `<li onclick="navigateTo('${esc(n.id)}')"><span class="badge badge-${n.type}">${n.type[0].toUpperCase()}</span><span class="name">${esc(n.name || n.id)}</span>${detail ? `<span class="edge-detail">${esc(detail)}</span>` : ''}</li>`;
+        }
+        html += '</ul></div>';
+      }
+      html += '</div>';
+    }
+
+    // Then show regular neighbors grouped by node type
+    if (regularNeighbors.length) {
+      const byType = {};
+      for (const n of regularNeighbors) (byType[n.type] ||= []).push(n);
+      for (const [type, nodes] of Object.entries(byType)) {
+        html += `<div class="section"><h3>${type}s (${nodes.length})</h3><ul class="node-list">`;
+        for (const n of nodes.slice(0, 20)) {
+          const edgeLabel = n.edgesFromParent?.map(e => e.type).filter(t => mechanicalEdges.has(t)).join(', ') || '';
+          html += `<li onclick="navigateTo('${esc(n.id)}')"><span class="badge badge-${n.type}">${n.type[0].toUpperCase()}</span><span class="name">${esc(n.name || n.id)}</span><span class="rank">${edgeLabel}</span></li>`;
+        }
+        html += '</ul></div>';
+      }
+    }
+  }
+
+  detail.innerHTML = html;
+}
+
+function renderEnrichment(ann) {
+  let html = '<div class="enrichment-box">';
+  html += `<div class="summary">${esc(ann.summary)}</div>`;
+
+  if (ann.sentiment) {
+    html += `<span class="sentiment-badge sentiment-${ann.sentiment}">${ann.sentiment}</span> `;
+  }
+
+  if (ann.topics?.length) {
+    html += '<div class="topics-row" style="margin-top:6px">';
+    for (const t of ann.topics) html += `<span class="topic-tag">${esc(t)}</span>`;
+    html += '</div>';
+  }
+
+  if (ann.decisions?.length) {
+    html += '<div class="section"><h3>Decisions</h3><ul class="decisions">';
+    for (const d of ann.decisions) html += `<li>${esc(d)}</li>`;
+    html += '</ul></div>';
+  }
+
+  html += `<p class="meta" style="margin-top:6px">Enriched by ${esc(ann.by)} at ${new Date(ann.at).toLocaleString()}</p>`;
+  html += '</div>';
+  return html;
+}
+
+async function enrichNode(clusterId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Enriching...';
+  try {
+    const r = await fetch(API + '/api/enrich', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clusterId }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Enrichment failed');
+    // Refresh detail panel
+    updateDetail(clusterId);
+  } catch (e) {
+    btn.textContent = `Error: ${e.message}`;
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Enrich with AI'; }, 3000);
+  }
+}
+
+// ---- Force-directed graph ----
+async function loadNodeGraph(nodeId) {
+  const traversal = await apiFetch(`/api/traverse?id=${encodeURIComponent(nodeId)}&hops=2`);
+  if (!traversal || !traversal.length) return;
+
+  // Build node map from traversal
+  const nodeMap = new Map();
+  const edges = [];
+
+  for (const n of traversal) {
+    if (!nodeMap.has(n.id)) {
+      nodeMap.set(n.id, {
+        id: n.id,
+        type: n.type,
+        name: n.name || n.id,
+        depth: n.depth,
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        pagerank: n.pagerank || 0,
+        rawText: n.rawText,
+        startTime: n.startTime,
+        messageCount: n.messageCount,
+        participantCount: n.participantCount,
+        globalFrequency: n.globalFrequency,
+      });
+    }
+    if (n.edgesFromParent) {
+      // Find the parent — the node at depth-1 that connects
+      for (const e of n.edgesFromParent) {
+        // Edge source/target from traversal structure
+        edges.push({ source: n.id, target: n.id, type: e.type, weight: e.weight || 1, _raw: e });
+      }
+    }
+  }
+
+  // Reconstruct edges from traversal BFS structure
+  const reconstructedEdges = [];
+  const seen = new Set();
+  for (const n of traversal) {
+    if (n.edgesFromParent) {
+      for (const e of n.edgesFromParent) {
+        // Find the parent at depth - 1
+        const parent = traversal.find(p => p.depth === n.depth - 1 && !seen.has(`${p.id}-${n.id}-${e.type}`));
+        if (parent) {
+          const key = `${parent.id}-${n.id}-${e.type}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            reconstructedEdges.push({ source: parent.id, target: n.id, type: e.type, weight: e.weight || 1 });
+          }
+        }
+      }
+    }
+  }
+
+  // Position nodes — focus at center, spread by depth
+  const wrap = document.getElementById('canvas-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const cx = W / 2, cy = H / 2;
+
+  const byDepth = [[], [], []];
+  for (const n of nodeMap.values()) {
+    byDepth[n.depth] = byDepth[n.depth] || [];
+    byDepth[n.depth].push(n);
+  }
+
+  // Center node
+  for (const n of (byDepth[0] || [])) { n.x = cx; n.y = cy; }
+
+  // Depth 1 — inner ring
+  const d1 = byDepth[1] || [];
+  const r1 = Math.min(W, H) * 0.22;
+  for (let i = 0; i < d1.length; i++) {
+    const a = (2 * Math.PI * i / d1.length) - Math.PI / 2;
+    d1[i].x = cx + Math.cos(a) * r1 + (Math.random() - 0.5) * 20;
+    d1[i].y = cy + Math.sin(a) * r1 + (Math.random() - 0.5) * 20;
+  }
+
+  // Depth 2 — outer ring
+  const d2 = byDepth[2] || [];
+  const r2 = Math.min(W, H) * 0.4;
+  for (let i = 0; i < d2.length; i++) {
+    const a = (2 * Math.PI * i / d2.length) - Math.PI / 2 + 0.1;
+    d2[i].x = cx + Math.cos(a) * r2 + (Math.random() - 0.5) * 30;
+    d2[i].y = cy + Math.sin(a) * r2 + (Math.random() - 0.5) * 30;
+  }
+
+  simNodes = [...nodeMap.values()];
+  simEdges = reconstructedEdges.filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+
+  // Reset camera
+  camera = { x: 0, y: 0, zoom: 1 };
+
+  // Run force simulation
+  startSimulation();
+}
+
+function startSimulation() {
+  let alpha = 1;
+  let iterations = 0;
+
+  function tick() {
+    if (alpha < 0.001 || iterations > 300) { render(); return; }
+    alpha *= 0.96;
+    iterations++;
+
+    const wrap = document.getElementById('canvas-wrap');
+    const cx = wrap.clientWidth / 2;
+    const cy = wrap.clientHeight / 2;
+
+    // Repulsion between all nodes
+    for (let i = 0; i < simNodes.length; i++) {
+      for (let j = i + 1; j < simNodes.length; j++) {
+        const a = simNodes[i], b = simNodes[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const minDist = a.depth === 0 || b.depth === 0 ? 80 : 40;
+        const force = alpha * 300 / (dist * dist);
+        if (dist < minDist) {
+          const push = (minDist - dist) * 0.5 * alpha;
+          dx /= dist; dy /= dist;
+          a.x -= dx * push; a.y -= dy * push;
+          b.x += dx * push; b.y += dy * push;
+        } else {
+          dx /= dist; dy /= dist;
+          a.x -= dx * force; a.y -= dy * force;
+          b.x += dx * force; b.y += dy * force;
+        }
+      }
+    }
+
+    // Attraction along edges
+    for (const e of simEdges) {
+      const a = simNodes.find(n => n.id === e.source);
+      const b = simNodes.find(n => n.id === e.target);
+      if (!a || !b) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const ideal = 120 + (a.depth + b.depth) * 30;
+      const force = (dist - ideal) * 0.01 * alpha;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      if (a.depth !== 0) { a.x += fx; a.y += fy; }
+      if (b.depth !== 0) { b.x -= fx; b.y -= fy; }
+    }
+
+    // Center gravity (gentle)
+    for (const n of simNodes) {
+      if (n.depth === 0 && focusNodeId && n.id === focusNodeId) { n.x = cx; n.y = cy; continue; }
+      n.x += (cx - n.x) * 0.002 * alpha;
+      n.y += (cy - n.y) * 0.002 * alpha;
+    }
+
+    render();
+    animFrame = requestAnimationFrame(tick);
+  }
+
+  if (animFrame) cancelAnimationFrame(animFrame);
+  tick();
+}
+
+// ---- Rendering ----
+function render() {
+  const canvas = document.getElementById('graph');
+  const wrap = document.getElementById('canvas-wrap');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  // Apply camera
+  ctx.save();
+  ctx.translate(camera.x, camera.y);
+  ctx.scale(camera.zoom, camera.zoom);
+
+  const nodeById = new Map(simNodes.map(n => [n.id, n]));
+  const hasSearchHighlight = searchHighlightIds.size > 0;
+
+  // Draw edges
+  for (const e of simEdges) {
+    const a = nodeById.get(e.source);
+    const b = nodeById.get(e.target);
+    if (!a || !b) continue;
+
+    const isFocusEdge = a.id === focusNodeId || b.id === focusNodeId;
+    const isHoverEdge = hoveredNode && (a.id === hoveredNode.id || b.id === hoveredNode.id);
+    const isSearchEdge = hasSearchHighlight && (searchHighlightIds.has(a.id) || searchHighlightIds.has(b.id));
+
+    ctx.strokeStyle = isHoverEdge ? '#555' : isSearchEdge ? '#444' : isFocusEdge ? '#333' : '#181818';
+    ctx.lineWidth = isHoverEdge ? 1.5 : isSearchEdge ? 1.2 : 1;
+    ctx.globalAlpha = isHoverEdge ? 1 : isSearchEdge ? 0.8 : isFocusEdge ? 0.7 : hasSearchHighlight ? 0.1 : 0.3;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+
+    // Edge label on hover
+    if (isHoverEdge) {
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = '#888';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.type, (a.x + b.x) / 2, (a.y + b.y) / 2 - 4);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Draw nodes
+  for (const n of simNodes) {
+    const isFocus = n.id === focusNodeId;
+    const isHover = hoveredNode && n.id === hoveredNode.id;
+    const isConnectedToHover = hoveredNode && simEdges.some(e =>
+      (e.source === hoveredNode.id && e.target === n.id) || (e.target === hoveredNode.id && e.source === n.id)
+    );
+    const isSearchMatch = hasSearchHighlight && searchHighlightIds.has(n.id);
+
+    const r = isFocus ? 16 : isSearchMatch ? 12 : n.depth === 0 ? 10 : n.depth === 1 ? 8 : 5;
+    const color = COLORS[n.type] || '#888';
+    const dimColor = DIM_COLORS[n.type] || '#222';
+
+    // Glow for focus or search match
+    if (isFocus || isSearchMatch) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = isFocus ? 20 : 15;
+    }
+
+    // Dim logic
+    if (hoveredNode && !isHover && !isConnectedToHover && !isFocus) {
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = dimColor;
+    } else if (hasSearchHighlight && !isSearchMatch && !isFocus) {
+      ctx.globalAlpha = 0.2;
+      ctx.fillStyle = dimColor;
+    } else {
+      ctx.globalAlpha = isHover || isFocus || isSearchMatch ? 1 : n.depth <= 1 ? 0.8 : 0.5;
+      ctx.fillStyle = color;
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hover ring
+    if (isHover && !isFocus) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6;
+      ctx.stroke();
+    }
+
+    // Search match pulse ring
+    if (isSearchMatch && !isFocus) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.8;
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+
+    // Labels
+    const showLabel = isFocus || isHover || isConnectedToHover || isSearchMatch || n.depth <= 1;
+    if (showLabel) {
+      const label = (n.name || n.id).replace(/^(person|channel|entity|cluster):/, '').slice(0, 28);
+      ctx.fillStyle = isFocus || isHover || isSearchMatch ? '#fff' : isConnectedToHover ? '#bbb' : '#777';
+      ctx.font = `${isFocus || isSearchMatch ? 12 : 10}px -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = (hoveredNode && !isHover && !isConnectedToHover && !isFocus) ? 0.15 :
+                        (hasSearchHighlight && !isSearchMatch && !isFocus) ? 0.2 : 1;
+      ctx.fillText(label, n.x, n.y + r + 14);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  ctx.restore();
+}
+
+// ---- Canvas interaction ----
+const canvasEl = document.getElementById('graph');
+const tooltip = document.getElementById('tooltip');
+
+function canvasToWorld(cx, cy) {
+  return { x: (cx - camera.x) / camera.zoom, y: (cy - camera.y) / camera.zoom };
+}
+
+function hitTest(cx, cy) {
+  const { x, y } = canvasToWorld(cx, cy);
+  // Test in reverse so top-drawn nodes are hit first
+  for (let i = simNodes.length - 1; i >= 0; i--) {
+    const n = simNodes[i];
+    const isSearchMatch = searchHighlightIds.has(n.id);
+    const r = n.id === focusNodeId ? 16 : isSearchMatch ? 12 : n.depth === 0 ? 10 : n.depth === 1 ? 8 : 5;
+    const dx = x - n.x, dy = y - n.y;
+    if (dx * dx + dy * dy < (r + 6) ** 2) return n;
+  }
+  return null;
+}
+
+canvasEl.addEventListener('mousemove', (e) => {
+  const rect = canvasEl.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+
+  if (dragging) {
+    if (dragging.pan) {
+      camera.x = dragging.camX + (e.clientX - dragging.startX);
+      camera.y = dragging.camY + (e.clientY - dragging.startY);
+      render();
+    } else if (dragging.node) {
+      const { x, y } = canvasToWorld(cx, cy);
+      dragging.node.x = x;
+      dragging.node.y = y;
+      render();
+    }
+    return;
+  }
+
+  const node = hitTest(cx, cy);
+  if (node !== hoveredNode) {
+    hoveredNode = node;
+    canvasEl.style.cursor = node ? 'pointer' : 'grab';
+    render();
+  }
+
+  // Tooltip
+  if (node) {
+    let ttHtml = `<div class="tt-type">${node.type}</div><div class="tt-name">${esc(node.name || node.id)}</div>`;
+    if (node.type === 'cluster') ttHtml += `<div class="tt-detail">${node.messageCount || '?'} msgs, ${node.participantCount || '?'} people</div>`;
+    if (node.type === 'entity') ttHtml += `<div class="tt-detail">freq: ${node.globalFrequency || 0}</div>`;
+    if (node.pagerank) ttHtml += `<div class="tt-detail">rank: ${(node.pagerank * 1000).toFixed(1)}</div>`;
+    ttHtml += `<div class="tt-detail" style="margin-top:3px;color:#555;">click to traverse</div>`;
+    tooltip.innerHTML = ttHtml;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (cx + 12) + 'px';
+    tooltip.style.top = (cy - 10) + 'px';
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+canvasEl.addEventListener('mousedown', (e) => {
+  const rect = canvasEl.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const node = hitTest(cx, cy);
+
+  if (node && node.id !== focusNodeId) {
+    dragging = { node };
+  } else if (!node) {
+    dragging = { pan: true, startX: e.clientX, startY: e.clientY, camX: camera.x, camY: camera.y };
+    canvasEl.style.cursor = 'grabbing';
+  }
+});
+
+canvasEl.addEventListener('mouseup', (e) => {
+  if (dragging && dragging.node) {
+    // If barely moved, treat as click
+    dragging = null;
+  } else {
+    dragging = null;
+    canvasEl.style.cursor = hoveredNode ? 'pointer' : 'grab';
+  }
+});
+
+canvasEl.addEventListener('click', (e) => {
+  const rect = canvasEl.getBoundingClientRect();
+  const node = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (node) navigateTo(node.id);
+});
+
+canvasEl.addEventListener('dblclick', (e) => {
+  e.preventDefault();
+  const rect = canvasEl.getBoundingClientRect();
+  const node = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (node) navigateTo(node.id);
+});
+
+// Zoom with scroll
+canvasEl.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvasEl.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.max(0.2, Math.min(5, camera.zoom * zoomFactor));
+
+  // Zoom towards mouse position
+  camera.x = mx - (mx - camera.x) * (newZoom / camera.zoom);
+  camera.y = my - (my - camera.y) * (newZoom / camera.zoom);
+  camera.zoom = newZoom;
+
+  render();
+}, { passive: false });
+
+canvasEl.addEventListener('mouseleave', () => {
+  hoveredNode = null;
+  tooltip.style.display = 'none';
+  dragging = null;
+  render();
+});
+
+// ---- Resize ----
+function resizeCanvas() {
+  render();
+}
+window.addEventListener('resize', debounce(resizeCanvas, 100));
+
+// ---- Utils ----
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function shortDate(ts) { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()}`; }
+</script>
+</body>
+</html>
